@@ -345,10 +345,14 @@ func NewGovParamSetChainConfig(config *ChainConfig) (*GovParamSet, error) {
 func (p *GovParamSet) set(key int, value interface{}) error {
 	ty, ok := govParamTypes[key]
 	if !ok {
+		logger := log.NewModuleLogger(log.Governance)
+		logger.Error("Unknown governance param key", "key", key)
 		return errors.New("Unknown governance param key")
 	}
 	parsed, ok := ty.ParseValue(value)
 	if !ok {
+		logger := log.NewModuleLogger(log.Governance)
+		logger.Error("Malformed governance param value", "key", key, "name", govParamNamesReverse[key], "value", value)
 		return errors.New("Malformed governance param value")
 	}
 	p.items[key] = parsed

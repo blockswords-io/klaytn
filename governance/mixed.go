@@ -28,7 +28,7 @@ func newMixedEngine(config *params.ChainConfig, db database.DBManager, doInit bo
 		e.initialParams = govParams
 		e.currentParams = govParams
 	} else {
-		logger.Crit("Error parsing ChainConfig")
+		logger.Crit("Error parsing initial ChainConfig", "err", err)
 	}
 
 	// Setup subordinate engines
