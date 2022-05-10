@@ -65,12 +65,19 @@ const (
 	ConstTxGasHumanReadable
 	CliqueEpoch
 	Timeout
+	GovernanceGen
+	GovParamsContract
 )
 
 const (
 	GovernanceMode_None = iota
 	GovernanceMode_Single
 	GovernanceMode_Ballot
+)
+
+const (
+	GovernanceGen_Header = iota
+	GovernanceGen_Contract
 )
 
 const (
@@ -86,6 +93,8 @@ var (
 	// Default Values: Constants used for getting default values for configuration
 	DefaultGovernanceMode          = "none"
 	DefaultGoverningNode           = "0x0000000000000000000000000000000000000000"
+	DefaultGovernanceGen           = "header"
+	DefaultGovParamsContract       = "0x0000000000000000000000000000000000000000"
 	DefaultEpoch                   = uint64(604800)
 	DefaultProposerPolicy          = uint64(RoundRobin)
 	DefaultSubGroupSize            = uint64(21)
