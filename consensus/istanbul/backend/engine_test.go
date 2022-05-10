@@ -1192,6 +1192,23 @@ func TestGovernance_UpdateParams(t *testing.T) {
 				8: {"governance.unitprice": uint64(222)},
 			},
 		},
+		{
+			9,
+			map[int]vote{
+				1: {"governance.governancegen", "contract"},
+			},
+			map[int]expected{
+				0: {"governance.governancegen": "header"},
+				1: {"governance.governancegen": "header"},
+				2: {"governance.governancegen": "header"},
+				3: {"governance.governancegen": "header"},
+				4: {"governance.governancegen": "header"},
+				5: {"governance.governancegen": "header"},
+				6: {"governance.governancegen": "contract"},
+				7: {"governance.governancegen": "contract"},
+				8: {"governance.governancegen": "contract"},
+			},
+		},
 	}
 
 	var configItems []interface{}
@@ -1232,7 +1249,8 @@ func TestGovernance_UpdateParams(t *testing.T) {
 
 			// Place a vote if a vote is scheduled in upcoming block
 			if v, ok := tc.votes[nextNum]; ok {
-				engine.governance.AddVote(v.key, v.value)
+				ok := engine.governance.AddVote(v.key, v.value)
+				assert.True(t, ok)
 			}
 
 			// Create a block

@@ -50,6 +50,8 @@ var (
 	GovernanceKeyMap = map[string]int{
 		"governance.governancemode":     params.GovernanceMode,
 		"governance.governingnode":      params.GoverningNode,
+		"governance.governancegen":      params.GovernanceGen,
+		"governance.govparamscontract":  params.GovParamsContract,
 		"istanbul.epoch":                params.Epoch,
 		"istanbul.policy":               params.Policy,
 		"istanbul.committeesize":        params.CommitteeSize,
@@ -76,6 +78,8 @@ var (
 	GovernanceKeyMapReverse = map[int]string{
 		params.GovernanceMode:          "governance.governancemode",
 		params.GoverningNode:           "governance.governingnode",
+		params.GovernanceGen:           "governance.governancegen",
+		params.GovParamsContract:       "governance.govparamscontract",
 		params.Epoch:                   "istanbul.epoch",
 		params.CliqueEpoch:             "clique.epoch",
 		params.Policy:                  "istanbul.policy",
@@ -110,6 +114,11 @@ var (
 		"none":   params.GovernanceMode_None,
 		"single": params.GovernanceMode_Single,
 		"ballot": params.GovernanceMode_Ballot,
+	}
+
+	GovernanceGenMap = map[string]int{
+		"header":   params.GovernanceGen_Header,
+		"contract": params.GovernanceGen_Contract,
 	}
 )
 
@@ -544,13 +553,13 @@ func (g *Governance) ParseVoteValue(gVote *GovernanceVote) (*GovernanceVote, err
 	}
 
 	switch k {
-	case params.GovernanceMode, params.MintingAmount, params.MinimumStake, params.Ratio:
+	case params.GovernanceMode, params.MintingAmount, params.MinimumStake, params.Ratio, params.GovernanceGen:
 		v, ok := gVote.Value.([]uint8)
 		if !ok {
 			return nil, ErrValueTypeMismatch
 		}
 		val = string(v)
-	case params.GoverningNode:
+	case params.GoverningNode, params.GovParamsContract:
 		v, ok := gVote.Value.([]uint8)
 		if !ok {
 			return nil, ErrValueTypeMismatch
@@ -607,10 +616,10 @@ func (gov *Governance) ReflectVotes(vote GovernanceVote) {
 
 func (gov *Governance) updateChangeSet(vote GovernanceVote) bool {
 	switch GovernanceKeyMap[vote.Key] {
-	case params.GoverningNode:
+	case params.GoverningNode, params.GovParamsContract:
 		gov.changeSet.SetValue(GovernanceKeyMap[vote.Key], vote.Value.(common.Address))
 		return true
-	case params.GovernanceMode, params.Ratio:
+	case params.GovernanceMode, params.Ratio, params.GovernanceGen:
 		gov.changeSet.SetValue(GovernanceKeyMap[vote.Key], vote.Value.(string))
 		return true
 	case params.Epoch, params.StakeUpdateInterval, params.ProposerRefreshInterval, params.CommitteeSize, params.UnitPrice, params.ConstTxGasHumanReadable, params.Policy, params.Timeout:

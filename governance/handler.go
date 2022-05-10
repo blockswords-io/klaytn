@@ -62,6 +62,8 @@ var GovernanceItems = map[int]check{
 	params.CommitteeSize:           {uint64T, checkCommitteeSize, nil},
 	params.ConstTxGasHumanReadable: {uint64T, checkUint64andBool, updateTxGasHumanReadable},
 	params.Timeout:                 {uint64T, checkUint64andBool, nil},
+	params.GovernanceGen:           {stringT, checkGovernanceGen, nil},
+	params.GovParamsContract:       {addressT, checkAddress, nil},
 }
 
 func updateTxGasHumanReadable(g *Governance, k string, v interface{}) {
@@ -232,6 +234,11 @@ func checkGovernanceMode(k string, v interface{}) bool {
 		return true
 	}
 	return false
+}
+
+func checkGovernanceGen(k string, v interface{}) bool {
+	_, ok := GovernanceGenMap[v.(string)]
+	return ok
 }
 
 func checkCommitteeSize(k string, v interface{}) bool {
