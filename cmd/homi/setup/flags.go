@@ -254,6 +254,18 @@ var (
 		Value: params.DefaultGoverningNode,
 	}
 
+	govGenFlag = cli.StringFlag{
+		Name:  "gov-gen",
+		Usage: "governance generation (header, contract) [default: header]",
+		Value: params.DefaultGovernanceGen,
+	}
+
+	govParamsContractFlag = cli.StringFlag{
+		Name:  "gov-params-contract",
+		Usage: "the GovParams contract [default: 0x0000000000000000000000000000000000000000]",
+		Value: params.DefaultGovParamsContract,
+	}
+
 	rewardMintAmountFlag = cli.StringFlag{
 		Name:  "reward-mint-amount",
 		Usage: "governance minting amount",

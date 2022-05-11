@@ -214,10 +214,17 @@ func genGovernanceConfig(ctx *cli.Context) *params.GovernanceConfig {
 	if !common.IsHexAddress(governingNode) {
 		log.Fatalf("Governing Node is invalid hex address", "value", governingNode)
 	}
+	govGen := ctx.String(govGenFlag.Name)
+	govParamsContract := ctx.String(govParamsContractFlag.Name)
+	if !common.IsHexAddress(govParamsContract) {
+		log.Fatalf("Governing Node is invalid hex address", "value", governingNode)
+	}
 	return &params.GovernanceConfig{
-		GoverningNode:  common.HexToAddress(governingNode),
-		GovernanceMode: govMode,
-		Reward:         genRewardConfig(ctx),
+		GovernanceMode:    govMode,
+		GoverningNode:     common.HexToAddress(governingNode),
+		GovernanceGen:     govGen,
+		GovParamsContract: common.HexToAddress(govParamsContract),
+		Reward:            genRewardConfig(ctx),
 	}
 }
 
@@ -297,8 +304,10 @@ func genCypressCommonGenesis(nodeAddrs, testAddrs []common.Address) *blockchain.
 			ChainID:       big.NewInt(10000),
 			DeriveShaImpl: 2,
 			Governance: &params.GovernanceConfig{
-				GoverningNode:  nodeAddrs[0],
-				GovernanceMode: "single",
+				GoverningNode:     nodeAddrs[0],
+				GovernanceMode:    "single",
+				GovernanceGen:     "header",
+				GovParamsContract: common.HexToAddress("0x0"),
 				Reward: &params.RewardConfig{
 					MintingAmount: mintingAmount,
 					Ratio:         "34/54/12",
@@ -388,8 +397,10 @@ func genBaobabCommonGenesis(nodeAddrs, testAddrs []common.Address) *blockchain.G
 			ChainID:       big.NewInt(2019),
 			DeriveShaImpl: 2,
 			Governance: &params.GovernanceConfig{
-				GoverningNode:  nodeAddrs[0],
-				GovernanceMode: "single",
+				GoverningNode:     nodeAddrs[0],
+				GovernanceMode:    "single",
+				GovernanceGen:     "header",
+				GovParamsContract: common.HexToAddress("0x0"),
 				Reward: &params.RewardConfig{
 					MintingAmount: mintingAmount,
 					Ratio:         "34/54/12",
