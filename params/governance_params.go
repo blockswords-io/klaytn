@@ -76,7 +76,8 @@ const (
 )
 
 const (
-	GovernanceGen_Header = iota
+	GovernanceGen_Unset = iota
+	GovernanceGen_Header
 	GovernanceGen_Contract
 )
 

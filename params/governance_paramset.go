@@ -67,6 +67,7 @@ var (
 	}
 
 	govGenNames = map[string]int{
+		"":         GovernanceGen_Unset,
 		"header":   GovernanceGen_Header,
 		"contract": GovernanceGen_Contract,
 	}
