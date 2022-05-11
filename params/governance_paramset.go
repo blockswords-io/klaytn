@@ -2,6 +2,7 @@ package params
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -299,6 +300,22 @@ func NewGovParamSetIntMap(items map[int]interface{}) (*GovParamSet, error) {
 	return p, nil
 }
 
+func NewGovParamSetBytesMap(items map[string][]byte) (*GovParamSet, error) {
+	p := NewGovParamSet()
+
+	for name, value := range items {
+		key, ok := govParamNames[name]
+		if !ok {
+			return nil, fmt.Errorf("Unknown governance param '%s'", name)
+		}
+		err := p.setBytes(key, value)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return p, nil
+}
+
 // Return a new GovParamSet that contains keys from both input sets.
 // If a key belongs to both sets, the value from `update` is used.
 func NewGovParamSetMerged(base *GovParamSet, update *GovParamSet) *GovParamSet {
@@ -354,6 +371,23 @@ func (p *GovParamSet) set(key int, value interface{}) error {
 	if !ok {
 		logger := log.NewModuleLogger(log.Governance)
 		logger.Error("Malformed governance param value", "key", key, "name", govParamNamesReverse[key], "value", value)
+		return errors.New("Malformed governance param value")
+	}
+	p.items[key] = parsed
+	return nil
+}
+
+func (p *GovParamSet) setBytes(key int, bytes []byte) error {
+	ty, ok := govParamTypes[key]
+	if !ok {
+		logger := log.NewModuleLogger(log.Governance)
+		logger.Error("Unknown governance param key", "key", key)
+		return errors.New("Unknown governance param key")
+	}
+	parsed, ok := ty.ParseBytes(bytes)
+	if !ok {
+		logger := log.NewModuleLogger(log.Governance)
+		logger.Error("Malformed governance param value", "key", key, "name", govParamNamesReverse[key], "bytes", hex.EncodeToString(bytes))
 		return errors.New("Malformed governance param value")
 	}
 	p.items[key] = parsed
