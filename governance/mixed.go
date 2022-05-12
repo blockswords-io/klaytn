@@ -14,8 +14,8 @@ type MixedEngine struct {
 	currentParams *params.GovParamSet
 
 	// Subordinate engines
-	// TODO: Add ContractEngine
-	defaultGov HeaderEngine
+	defaultGov     HeaderEngine
+	contractEngine ReaderEngine
 }
 
 // newMixedEngine instantiate a new MixedEngine struct.
@@ -38,6 +38,8 @@ func newMixedEngine(config *params.ChainConfig, db database.DBManager, doInit bo
 		e.defaultGov = NewGovernance(config, db)
 	}
 
+	e.contractEngine = NewContractEngine(config)
+
 	// Load last state
 	e.UpdateParams()
 	return e
@@ -53,20 +55,6 @@ func NewMixedEngineNoInit(config *params.ChainConfig, db database.DBManager) *Mi
 	return newMixedEngine(config, db, false)
 }
 
-// TODO: Once ContractEngine is developed, add wrapper methods as follows:
-//
-// MixedEngine will determine which subordinate engine to be used,
-// depending on block number or other governance configs.
-//
-// func (e *MixedEngine) ParamsAt(num uint64) *params.GovParamSet {
-//     if num >= config.Governance.ContractGovernanceBlock {
-//         return e.contractGov.ParamsAt(num)
-//     } else {
-//         _, strMap, _ := e.defaultGov.ReadGovernance(num)
-//         return params.NewGovParamSetStrMap(sm)
-//     }
-// }
-
 func (e *MixedEngine) Params() *params.GovParamSet {
 	return e.currentParams
 }
@@ -77,14 +65,31 @@ func (e *MixedEngine) ParamsAt(num uint64) (*params.GovParamSet, error) {
 		return nil, err
 	}
 
-	govParams, err := params.NewGovParamSetStrMap(strMap)
+	headerParams, err := params.NewGovParamSetStrMap(strMap)
 	if err != nil {
 		return nil, err
 	}
 
-	// Use ReadGovernance(), fallback to initialParams.
-	p := params.NewGovParamSetMerged(e.initialParams, govParams)
-	return p, nil
+	// If governancegen is "header" in either headerParams or initialParams,
+	// use contractgen.
+	isContractGen := false
+	if v, ok := headerParams.Get(params.GovernanceGen); ok {
+		if v.(string) == "contract" {
+			isContractGen = true
+		}
+	} else if v, ok := e.initialParams.Get(params.GovernanceGen); ok {
+		if v.(string) == "contract" {
+			isContractGen = true
+		}
+	}
+
+	if isContractGen {
+		return e.contractEngine.ParamsAt(num)
+	} else {
+		// Use ReadGovernance(), fallback to initialParams.
+		p := params.NewGovParamSetMerged(e.initialParams, headerParams)
+		return p, nil
+	}
 }
 
 func (e *MixedEngine) UpdateParams() error {

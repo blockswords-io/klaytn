@@ -211,13 +211,11 @@ chainEventLoop:
 		assert.Nil(t, err)
 		require.NotNil(t, p)
 
+		// If contract don't contain some params,
+		// then initial chainconfig is used as fallback.
+		// Therefore all parameters always exists.
 		v, ok := p.Get(params.UnitPrice)
-		if num <= addParamBlock {
-			assert.False(t, ok) // param not yet exists before addParam
-			continue
-		} else {
-			assert.True(t, ok)
-		}
+		assert.True(t, ok)
 
 		value := v.(uint64)
 		t.Logf("ParamsAt(%d)[%s] is %d", num, paramName, value)

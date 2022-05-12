@@ -59,7 +59,13 @@ func (e *ContractEngine) ParamsAt(num uint64) (*params.GovParamSet, error) {
 	}
 	stateBlock := new(big.Int).SetUint64(num - 1)
 	paramBlock := new(big.Int).SetUint64(num)
-	return e.contractGetAllParams(stateBlock, paramBlock)
+
+	govParams, err := e.contractGetAllParams(stateBlock, paramBlock)
+	if err != nil {
+		return nil, err
+	}
+	p := params.NewGovParamSetMerged(e.initialParams, govParams)
+	return p, nil
 }
 
 func (e *ContractEngine) UpdateParams() error {
@@ -68,7 +74,7 @@ func (e *ContractEngine) UpdateParams() error {
 	if err != nil {
 		return err
 	}
-	e.currentParams = govParams
+	e.currentParams = params.NewGovParamSetMerged(e.initialParams, govParams)
 	return nil
 }
 
