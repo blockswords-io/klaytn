@@ -199,7 +199,7 @@ func TestGovParamSet_New(t *testing.T) {
 	assert.True(t, ok)
 
 	p, err = NewGovParamSetBytesMap(map[string][]byte{
-		"istanbul.epoch": []byte{0x12, 0x34},
+		"istanbul.epoch": {0x12, 0x34},
 	})
 	assert.Nil(t, err)
 	v, ok = p.Get(Epoch)

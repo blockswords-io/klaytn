@@ -23,7 +23,6 @@ type ContractEngine struct {
 	chain   blockChain
 	address common.Address // GovParams contract address
 	abi     abi.ABI        // parsed contract ABI
-
 }
 
 func NewContractEngine(config *params.ChainConfig) *ContractEngine {
@@ -73,6 +72,10 @@ func (e *ContractEngine) UpdateParams() error {
 	return nil
 }
 
+func (e *ContractEngine) SetBlockchain(chain blockChain) {
+	e.chain = chain
+}
+
 // At block `stateBlock`, call function `getAllParams(paramBlock)`.
 func (e *ContractEngine) contractGetAllParams(stateBlock, paramBlock *big.Int) (*params.GovParamSet, error) {
 	tx, err := e.makeTx(stateBlock, "getAllParams", paramBlock)
@@ -83,6 +86,10 @@ func (e *ContractEngine) contractGetAllParams(stateBlock, paramBlock *big.Int) (
 	res, err := e.callTx(stateBlock, tx)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(res) == 0 {
+		return params.NewGovParamSet(), nil
 	}
 
 	var paramViews []govcontract.GovParamParamView

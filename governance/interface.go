@@ -36,6 +36,8 @@ type ReaderEngine interface {
 	// Refresh currentParams (which returned by Params())
 	// to the parameters at latest block number.
 	UpdateParams() error
+
+	SetBlockchain(chain blockChain)
 }
 
 type HeaderEngine interface {
