@@ -141,6 +141,7 @@ func newBlockChain(n int, items ...interface{}) (*blockchain.BlockChain, *backen
 	if err != nil {
 		panic(err)
 	}
+	b.governance.SetBlockchain(bc)
 	if b.Start(bc, bc.CurrentBlock, bc.HasBadBlock) != nil {
 		panic(err)
 	}
@@ -216,8 +217,14 @@ func makeBlockWithoutSeal(chain *blockchain.BlockChain, engine *backend, parent 
 	if err := engine.Prepare(chain, header); err != nil {
 		panic(err)
 	}
-	state, _ := chain.StateAt(parent.Root())
-	block, _ := engine.Finalize(chain, header, state, nil, nil)
+	state, err := chain.StateAt(parent.Root())
+	if err != nil {
+		panic(err)
+	}
+	block, err := engine.Finalize(chain, header, state, nil, nil)
+	if err != nil {
+		panic(err)
+	}
 	return block
 }
 
@@ -1190,23 +1197,6 @@ func TestGovernance_UpdateParams(t *testing.T) {
 				6: {"governance.unitprice": uint64(222)},
 				7: {"governance.unitprice": uint64(222)},
 				8: {"governance.unitprice": uint64(222)},
-			},
-		},
-		{
-			9,
-			map[int]vote{
-				1: {"governance.governancegen", "contract"},
-			},
-			map[int]expected{
-				0: {"governance.governancegen": "header"},
-				1: {"governance.governancegen": "header"},
-				2: {"governance.governancegen": "header"},
-				3: {"governance.governancegen": "header"},
-				4: {"governance.governancegen": "header"},
-				5: {"governance.governancegen": "header"},
-				6: {"governance.governancegen": "contract"},
-				7: {"governance.governancegen": "contract"},
-				8: {"governance.governancegen": "contract"},
 			},
 		},
 	}

@@ -26,6 +26,10 @@ type ContractEngine struct {
 }
 
 func NewContractEngine(config *params.ChainConfig) *ContractEngine {
+	if config.Governance == nil {
+		logger.Warn("ContractEngine deactivated")
+		return nil
+	}
 	e := &ContractEngine{
 		address: config.Governance.GovParamsContract,
 	}
@@ -139,7 +143,8 @@ func (e *ContractEngine) makeTx(num *big.Int, fn string, args ...interface{}) (*
 
 func (e *ContractEngine) callTx(num *big.Int, tx *types.Transaction) ([]byte, error) {
 	if e.chain == nil {
-		return nil, errors.New("blockchain not initiatorEncHandshakeialized")
+		logger.Error("Tried to read GovParam without blockchain")
+		return nil, errors.New("blockchain not initialized")
 	}
 
 	// Load state at given block

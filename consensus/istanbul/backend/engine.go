@@ -454,6 +454,7 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 	header.Root = state.IntermediateRoot(true)
 
 	if err := sb.governance.UpdateParams(); err != nil {
+		logger.Error("Cannot update parameter", "header.Number", header.Number.Uint64(), "err", err)
 		return nil, err
 	}
 	logger.Info("Updated governance parameters to latest", "header.Number", header.Number.Uint64())

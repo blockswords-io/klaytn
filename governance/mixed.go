@@ -1,6 +1,8 @@
 package governance
 
 import (
+	"errors"
+
 	"github.com/klaytn/klaytn/blockchain/types"
 	"github.com/klaytn/klaytn/common"
 	"github.com/klaytn/klaytn/consensus/istanbul"
@@ -84,6 +86,10 @@ func (e *MixedEngine) ParamsAt(num uint64) (*params.GovParamSet, error) {
 	}
 
 	if isContractGen {
+		if e.contractEngine == nil {
+			logger.Error("ContractEngine is not ready")
+			return nil, errors.New("ContractEngine is not ready")
+		}
 		return e.contractEngine.ParamsAt(num)
 	} else {
 		// Use ReadGovernance(), fallback to initialParams.
@@ -102,6 +108,13 @@ func (e *MixedEngine) UpdateParams() error {
 	// Use CurrentSet(), fallback to initialParams.
 	e.currentParams = params.NewGovParamSetMerged(e.initialParams, govParams)
 	return nil
+}
+
+func (e *MixedEngine) SetBlockchain(chain blockChain) {
+	e.defaultGov.SetBlockchain(chain)
+	if e.contractEngine != nil {
+		e.contractEngine.SetBlockchain(chain)
+	}
 }
 
 // Pass-through to HeaderEngine
@@ -228,10 +241,6 @@ func (e *MixedEngine) SetTotalVotingPower(t uint64) {
 
 func (e *MixedEngine) SetMyVotingPower(t uint64) {
 	e.defaultGov.SetMyVotingPower(t)
-}
-
-func (e *MixedEngine) SetBlockchain(chain blockChain) {
-	e.defaultGov.SetBlockchain(chain)
 }
 
 func (e *MixedEngine) SetTxPool(txpool txPool) {
