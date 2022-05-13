@@ -1067,6 +1067,8 @@ func GetGovernanceItemsFromChainConfig(config *params.ChainConfig) GovernanceSet
 		governanceMap := map[int]interface{}{
 			params.GovernanceMode:          governance.GovernanceMode,
 			params.GoverningNode:           governance.GoverningNode,
+			params.GovernanceGen:           governance.GovernanceGen,
+			params.GovParamsContract:       governance.GovParamsContract,
 			params.UnitPrice:               config.UnitPrice,
 			params.MintingAmount:           governance.Reward.MintingAmount.String(),
 			params.Ratio:                   governance.Reward.Ratio,

@@ -112,6 +112,8 @@ Args :
 			governanceFlag,
 			govModeFlag,
 			governingNodeFlag,
+			govGenFlag,
+			govParamsContractFlag,
 			rewardMintAmountFlag,
 			rewardRatioFlag,
 			rewardGiniCoeffFlag,

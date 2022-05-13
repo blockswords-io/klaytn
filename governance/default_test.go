@@ -82,6 +82,8 @@ var tstData = []voteValue{
 	{k: "governance.governingnode", v: "address", e: false},
 	{k: "governance.governingnode", v: 0, e: false},
 	{k: "governance.governingnode", v: true, e: false},
+	{k: "governance.governancegen", v: "header", e: true},
+	{k: "governance.governancegen", v: "contract", e: true},
 	{k: "governance.unitprice", v: float64(0.0), e: true},
 	{k: "governance.unitprice", v: float64(0.1), e: false},
 	{k: "governance.unitprice", v: uint64(25000000000), e: true},
