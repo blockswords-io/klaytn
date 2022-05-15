@@ -262,7 +262,7 @@ type CallArgs struct {
 	Data     hexutil.Bytes   `json:"data"`
 }
 
-func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, vmCfg vm.Config, timeout time.Duration, globalGasCap *big.Int) ([]byte, uint64, uint64, bool, error) {
+func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, vmCfg *vm.Config, timeout time.Duration, globalGasCap *big.Int) ([]byte, uint64, uint64, bool, error) {
 	defer func(start time.Time) { logger.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
 
 	state, header, err := b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
@@ -346,12 +346,12 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 // Call executes the given transaction on the state for the given block number or hash.
 // It doesn't make and changes in the state/blockchain and is useful to execute and retrieve values.
 func (s *PublicBlockChainAPI) Call(ctx context.Context, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash) (hexutil.Bytes, error) {
-	result, _, _, _, err := DoCall(ctx, s.b, args, blockNrOrHash, vm.Config{}, localTxExecutionTime, s.b.RPCGasCap())
+	result, _, _, _, err := DoCall(ctx, s.b, args, blockNrOrHash, &vm.Config{}, localTxExecutionTime, s.b.RPCGasCap())
 	return (hexutil.Bytes)(result), err
 }
 
 func (s *PublicBlockChainAPI) EstimateComputationCost(ctx context.Context, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash) (hexutil.Uint64, error) {
-	_, _, computationCost, _, err := DoCall(ctx, s.b, args, blockNrOrHash, vm.Config{UseOpcodeComputationCost: true}, localTxExecutionTime, s.b.RPCGasCap())
+	_, _, computationCost, _, err := DoCall(ctx, s.b, args, blockNrOrHash, &vm.Config{UseOpcodeComputationCost: true}, localTxExecutionTime, s.b.RPCGasCap())
 	return (hexutil.Uint64)(computationCost), err
 }
 
@@ -383,7 +383,7 @@ func (s *PublicBlockChainAPI) DoEstimateGas(ctx context.Context, b Backend, args
 	executable := func(gas uint64) bool {
 		args.Gas = hexutil.Uint64(gas)
 
-		_, _, _, failed, err := DoCall(ctx, b, args, rpc.NewBlockNumberOrHashWithNumber(rpc.LatestBlockNumber), vm.Config{UseOpcodeComputationCost: true}, localTxExecutionTime, gasCap)
+		_, _, _, failed, err := DoCall(ctx, b, args, rpc.NewBlockNumberOrHashWithNumber(rpc.LatestBlockNumber), &vm.Config{UseOpcodeComputationCost: true}, localTxExecutionTime, gasCap)
 		if err != nil || failed {
 			return false
 		}
@@ -446,7 +446,7 @@ func (s *PublicBlockChainAPI) EstimateGasWithTrace(ctx context.Context, args Cal
 	executable := func(gas uint64, config *vm.Config) bool {
 		args.Gas = hexutil.Uint64(gas)
 
-		_, _, _, failed, err := DoCall(ctx, b, args, rpc.NewBlockNumberOrHashWithNumber(rpc.LatestBlockNumber), *config, localTxExecutionTime, gasCap)
+		_, _, _, failed, err := DoCall(ctx, b, args, rpc.NewBlockNumberOrHashWithNumber(rpc.LatestBlockNumber), config, localTxExecutionTime, gasCap)
 		if err != nil || failed {
 			return false
 		}
@@ -464,6 +464,7 @@ func (s *PublicBlockChainAPI) EstimateGasWithTrace(ctx context.Context, args Cal
 	// Reject the transaction as invalid if it still fails at the highest allowance
 	if hi == cap {
 		tracer := vm.NewInternalTxTracer()
+		vmConfig.Debug = true
 		vmConfig.Tracer = tracer
 
 		if !executable(hi, vmConfig) {
