@@ -407,6 +407,76 @@ func (s *PublicBlockChainAPI) DoEstimateGas(ctx context.Context, b Backend, args
 	return hexutil.Uint64(hi), nil
 }
 
+type EstimateGasTraceResult struct {
+	// Gas is an estimate of the amount of gas needed to execute the given transaction against the latest block.
+	Gas hexutil.Uint64 `json:"gas"`
+	// Trace contains trace result. Empty (undefined) Trace means estimation was successful.
+	Trace interface{} `json:"trace,omitempty"`
+}
+
+// EstimateGasWithTrace returns an estimated gas and trace if it is going to be reverted.
+// NOTE: This method is an unofficial, blockswords fork only method to help debugging.
+func (s *PublicBlockChainAPI) EstimateGasWithTrace(ctx context.Context, args CallArgs) (*EstimateGasTraceResult, error) {
+	b := s.b
+	gasCap := s.b.RPCGasCap()
+	// Following logic is mostly a copy of `DoEstimateGas` with trace enabled on revert.
+	// This is done for the sake of ease of maintenance against upstream.
+
+	// Binary search the gas requirement, as it may be higher than the amount used
+	var (
+		lo  uint64 = params.TxGas - 1
+		hi  uint64
+		cap uint64
+	)
+	if uint64(args.Gas) >= params.TxGas {
+		hi = uint64(args.Gas)
+	} else {
+		// Retrieve the current pending block to act as the gas ceiling
+		hi = params.UpperGasLimit
+	}
+	if gasCap != nil && hi > gasCap.Uint64() {
+		logger.Warn("Caller gas above allowance, capping", "requested", hi, "cap", gasCap)
+		hi = gasCap.Uint64()
+	}
+	cap = hi
+
+	vmConfig := &vm.Config{UseOpcodeComputationCost: true}
+
+	// Create a helper to check if a gas allowance results in an executable transaction
+	executable := func(gas uint64, config *vm.Config) bool {
+		args.Gas = hexutil.Uint64(gas)
+
+		_, _, _, failed, err := DoCall(ctx, b, args, rpc.NewBlockNumberOrHashWithNumber(rpc.LatestBlockNumber), *config, localTxExecutionTime, gasCap)
+		if err != nil || failed {
+			return false
+		}
+		return true
+	}
+	// Execute the binary search and hone in on an executable gas limit
+	for lo+1 < hi {
+		mid := (hi + lo) / 2
+		if !executable(mid, vmConfig) {
+			lo = mid
+		} else {
+			hi = mid
+		}
+	}
+	// Reject the transaction as invalid if it still fails at the highest allowance
+	if hi == cap {
+		tracer := vm.NewInternalTxTracer()
+		vmConfig.Tracer = tracer
+
+		if !executable(hi, vmConfig) {
+			result, err := tracer.GetResult()
+			return &EstimateGasTraceResult{
+				Gas:   hexutil.Uint64(0),
+				Trace: result,
+			}, err
+		}
+	}
+	return &EstimateGasTraceResult{Gas: hexutil.Uint64(hi)}, nil
+}
+
 // ExecutionResult groups all structured logs emitted by the EVM
 // while replaying a transaction in debug mode as well as transaction
 // execution status, the amount of gas used and the return value
