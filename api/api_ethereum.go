@@ -1595,7 +1595,7 @@ func EthDoCall(ctx context.Context, b Backend, args EthTransactionArgs, blockNrO
 	if msg.Gas() < intrinsicGas {
 		return nil, 0, 0, fmt.Errorf("%w: msg.gas %d, want %d", blockchain.ErrIntrinsicGas, msg.Gas(), intrinsicGas)
 	}
-	evm, vmError, err := b.GetEVM(ctx, msg, st, header, vm.Config{})
+	evm, vmError, err := b.GetEVM(ctx, msg, st, header, &vm.Config{})
 	if err != nil {
 		return nil, 0, 0, err
 	}

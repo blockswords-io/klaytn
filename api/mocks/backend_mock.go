@@ -224,7 +224,7 @@ func (mr *MockBackendMockRecorder) GetBlockReceiptsInCache(arg0 interface{}) *go
 }
 
 // GetEVM mocks base method.
-func (m *MockBackend) GetEVM(arg0 context.Context, arg1 blockchain.Message, arg2 *state.StateDB, arg3 *types.Header, arg4 vm.Config) (*vm.EVM, func() error, error) {
+func (m *MockBackend) GetEVM(arg0 context.Context, arg1 blockchain.Message, arg2 *state.StateDB, arg3 *types.Header, arg4 *vm.Config) (*vm.EVM, func() error, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetEVM", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(*vm.EVM)

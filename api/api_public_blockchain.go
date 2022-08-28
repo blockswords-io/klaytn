@@ -277,7 +277,7 @@ func (args *CallArgs) data() []byte {
 	return nil
 }
 
-func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, vmCfg vm.Config, timeout time.Duration, globalGasCap *big.Int) ([]byte, uint64, uint64, uint, error) {
+func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, vmCfg *vm.Config, timeout time.Duration, globalGasCap *big.Int) ([]byte, uint64, uint64, uint, error) {
 	defer func(start time.Time) { logger.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
 
 	state, header, err := b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
@@ -363,7 +363,7 @@ func (s *PublicBlockChainAPI) Call(ctx context.Context, args CallArgs, blockNrOr
 	if rpcGasCap := s.b.RPCGasCap(); rpcGasCap != nil {
 		gasCap = rpcGasCap
 	}
-	result, _, _, status, err := DoCall(ctx, s.b, args, blockNrOrHash, vm.Config{}, s.b.RPCEVMTimeout(), gasCap)
+	result, _, _, status, err := DoCall(ctx, s.b, args, blockNrOrHash, &vm.Config{}, s.b.RPCEVMTimeout(), gasCap)
 	if err != nil {
 		return nil, err
 	}
@@ -380,7 +380,7 @@ func (s *PublicBlockChainAPI) EstimateComputationCost(ctx context.Context, args 
 	if rpcGasCap := s.b.RPCGasCap(); rpcGasCap != nil {
 		gasCap = rpcGasCap
 	}
-	_, _, computationCost, _, err := DoCall(ctx, s.b, args, blockNrOrHash, vm.Config{UseOpcodeComputationCost: true}, s.b.RPCEVMTimeout(), gasCap)
+	_, _, computationCost, _, err := DoCall(ctx, s.b, args, blockNrOrHash, &vm.Config{UseOpcodeComputationCost: true}, s.b.RPCEVMTimeout(), gasCap)
 	return (hexutil.Uint64)(computationCost), err
 }
 
@@ -412,7 +412,7 @@ func (s *PublicBlockChainAPI) DoEstimateGas(ctx context.Context, b Backend, args
 	// Create a helper to check if a gas allowance results in an executable transaction
 	executable := func(gas uint64) (bool, []byte, error, error) {
 		args.Gas = hexutil.Uint64(gas)
-		ret, _, _, status, err := DoCall(ctx, b, args, rpc.NewBlockNumberOrHashWithNumber(rpc.LatestBlockNumber), vm.Config{}, 0, gasCap)
+		ret, _, _, status, err := DoCall(ctx, b, args, rpc.NewBlockNumberOrHashWithNumber(rpc.LatestBlockNumber), &vm.Config{}, 0, gasCap)
 		if err != nil {
 			if errors.Is(err, blockchain.ErrIntrinsicGas) {
 				// Special case, raise gas limit
@@ -460,6 +460,44 @@ func (s *PublicBlockChainAPI) DoEstimateGas(ctx context.Context, b Backend, args
 		}
 	}
 	return hexutil.Uint64(hi), nil
+}
+
+type EstimateGasTraceResult struct {
+	// Gas is an estimate of the amount of gas needed to execute the given transaction against the latest block.
+	Gas hexutil.Uint64 `json:"gas"`
+	// Trace contains trace result. Empty (undefined) Trace and empty error means estimation was successful.
+	Trace interface{} `json:"trace,omitempty"`
+	// Error is a raw error returned from the vm.
+	Error *string `json:"error,omitempty"`
+}
+
+// EstimateGasWithTrace returns an estimated gas and trace if it is going to be reverted.
+// NOTE: This method is an unofficial, blockswords fork only method to help debugging.
+func (s *PublicBlockChainAPI) EstimateGasWithTrace(ctx context.Context, args CallArgs) (*EstimateGasTraceResult, error) {
+	gasCap := uint64(0)
+	if rpcGasCap := s.b.RPCGasCap(); rpcGasCap != nil {
+		gasCap = rpcGasCap.Uint64()
+	}
+	gasCapBigInt := big.NewInt(int64(gasCap))
+
+	estimatedGas, err := s.DoEstimateGas(ctx, s.b, args, gasCapBigInt)
+	if err != nil {
+		errStr := err.Error()
+
+		tracer := vm.NewInternalTxTracer()
+
+		args.Gas = hexutil.Uint64(params.UpperGasLimit)
+		DoCall(ctx, s.b, args, rpc.NewBlockNumberOrHashWithNumber(rpc.LatestBlockNumber), &vm.Config{Debug: true, Tracer: tracer}, 0, gasCapBigInt)
+
+		tracerResult, tracerErr := tracer.GetResult()
+		return &EstimateGasTraceResult{
+			Gas:   estimatedGas,
+			Trace: tracerResult,
+			Error: &errStr,
+		}, tracerErr
+	}
+
+	return &EstimateGasTraceResult{Gas: estimatedGas}, nil
 }
 
 // ExecutionResult groups all structured logs emitted by the EVM
