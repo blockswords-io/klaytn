@@ -1346,7 +1346,7 @@ func EthDoCall(ctx context.Context, b Backend, args EthTransactionArgs, blockNrO
 	if msg.Gas() < intrinsicGas {
 		return nil, fmt.Errorf("%w: msg.gas %d, want %d", blockchain.ErrIntrinsicGas, msg.Gas(), intrinsicGas)
 	}
-	evm, vmError, err := b.GetEVM(ctx, msg, state, header, vm.Config{})
+	evm, vmError, err := b.GetEVM(ctx, msg, state, header, &vm.Config{})
 	if err != nil {
 		return nil, err
 	}
@@ -1535,7 +1535,7 @@ func AccessList(ctx context.Context, b Backend, blockNrOrHash rpc.BlockNumberOrH
 		// Apply the transaction with the access list tracer
 		tracer := vm.NewAccessListTracer(accessList, args.from(), to, precompiles)
 		config := vm.Config{Tracer: tracer, Debug: true}
-		vmenv, _, err := b.GetEVM(ctx, msg, statedb, header, config)
+		vmenv, _, err := b.GetEVM(ctx, msg, statedb, header, &config)
 		res, err := blockchain.ApplyMessage(vmenv, msg)
 		if err != nil {
 			tx, _ := args.toTransaction()
