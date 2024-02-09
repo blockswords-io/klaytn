@@ -336,6 +336,21 @@ func (s *StateDB) GetState(addr common.Address, hash common.Hash) common.Hash {
 	return common.Hash{}
 }
 
+// GetStates retrieves values from the given account's storage trie.
+func (s *StateDB) GetStates(addr common.Address, hashes []common.Hash) map[common.Hash]common.Hash {
+	states := map[common.Hash]common.Hash{}
+	stateObject := s.getStateObject(addr)
+	if stateObject != nil {
+		for _, hash := range hashes {
+			state := stateObject.GetState(s.db, hash)
+			if !common.EmptyHash(state) {
+				states[hash] = state
+			}
+		}
+	}
+	return states
+}
+
 // GetCommittedState retrieves a value from the given account's committed storage trie.
 func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) common.Hash {
 	stateObject := s.getStateObject(addr)

@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/klaytn/klaytn/blockchain"
@@ -36,6 +37,7 @@ import (
 	"github.com/klaytn/klaytn/common"
 	"github.com/klaytn/klaytn/common/hexutil"
 	"github.com/klaytn/klaytn/common/math"
+	"github.com/klaytn/klaytn/crypto/sha3"
 	"github.com/klaytn/klaytn/log"
 	"github.com/klaytn/klaytn/networks/rpc"
 	"github.com/klaytn/klaytn/node/cn/filters"
@@ -244,6 +246,83 @@ func (s *PublicBlockChainAPI) GetStorageAt(ctx context.Context, address common.A
 	return res[:], state.Error()
 }
 
+var registeredStorageKeysSet = sync.Map{}
+
+// RegisterStorageKeys registers the storage keys to be used in the GetStoragesAt API.
+func (s *PublicBlockChainAPI) RegisterStorageKeys(ctx context.Context, keys []common.Hash) bool {
+	var hash common.Hash
+
+	d := sha3.NewKeccak256()
+	for _, key := range keys {
+		d.Write(key[:])
+	}
+	d.Sum(hash[:0])
+
+	registeredStorageKeysSet.Store(hash, keys)
+
+	return true
+}
+
+// RegisteredStorageKeyHashes returns the registered storage key hashes.
+func (s *PublicBlockChainAPI) RegisteredStorageKeyHashes(ctx context.Context) []common.Hash {
+	hashes := make([]common.Hash, 0)
+	invalidHashes := make([]common.Hash, 0)
+
+	registeredStorageKeysSet.Range(func(key, value interface{}) bool {
+		hash, ok := key.(common.Hash)
+		if !ok {
+			invalidHashes = append(invalidHashes, hash)
+			return true
+		}
+
+		hashes = append(hashes, hash)
+
+		return true
+	})
+
+	for _, hash := range invalidHashes {
+		registeredStorageKeysSet.Delete(hash)
+	}
+
+	return hashes
+}
+
+// UnregisterStorageKeyHash unregisters the storage key hash.
+func (s *PublicBlockChainAPI) UnregisterStorageKeyHash(ctx context.Context, hash common.Hash) bool {
+	registeredStorageKeysSet.Delete(hash)
+	return true
+}
+
+// GetRegisteredStoragesAt returns the storages from the state at the given address,
+// registered storage keys and block number. The rpc.LatestBlockNumber and rpc.PendingBlockNumber
+// meta block numbers and hash are also allowed.
+func (s *PublicBlockChainAPI) GetRegisteredStoragesAt(ctx context.Context, address common.Address, hash common.Hash, blockNrOrHash rpc.BlockNumberOrHash) (map[common.Hash]common.Hash, error) {
+	o, ok := registeredStorageKeysSet.Load(hash)
+	if !ok {
+		return nil, fmt.Errorf("storage keys not found")
+	}
+
+	keys, ok := o.([]common.Hash)
+	if !ok {
+		registeredStorageKeysSet.Delete(hash)
+		return nil, fmt.Errorf("invalid storage keys")
+	}
+
+	return s.GetStoragesAt(ctx, address, keys, blockNrOrHash)
+}
+
+// GetStoragesAt returns the storages from the state at the given address, keys and
+// block number. The rpc.LatestBlockNumber and rpc.PendingBlockNumber meta block
+// numbers and hash are also allowed.
+func (s *PublicBlockChainAPI) GetStoragesAt(ctx context.Context, address common.Address, keys []common.Hash, blockNrOrHash rpc.BlockNumberOrHash) (map[common.Hash]common.Hash, error) {
+	state, _, err := s.b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	if err != nil {
+		return nil, err
+	}
+	res := state.GetStates(address, keys)
+	return res, state.Error()
+}
+
 // GetAccountKey returns the account key of EOA at a given address.
 // If the account of the given address is a Legacy Account or a Smart Contract Account, it will return nil.
 func (s *PublicBlockChainAPI) GetAccountKey(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (*accountkey.AccountKeySerializer, error) {
@@ -298,7 +377,7 @@ func (args *CallArgs) InputData() []byte {
 	return nil
 }
 
-func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, vmCfg vm.Config, timeout time.Duration, globalGasCap *big.Int) (*blockchain.ExecutionResult, uint64, error) {
+func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, vmCfg *vm.Config, timeout time.Duration, globalGasCap *big.Int) (*blockchain.ExecutionResult, uint64, error) {
 	defer func(start time.Time) { logger.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
 
 	state, header, err := b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
@@ -382,7 +461,7 @@ func (s *PublicBlockChainAPI) Call(ctx context.Context, args CallArgs, blockNrOr
 	if rpcGasCap := s.b.RPCGasCap(); rpcGasCap != nil {
 		gasCap = rpcGasCap
 	}
-	result, _, err := DoCall(ctx, s.b, args, blockNrOrHash, vm.Config{ComputationCostLimit: params.OpcodeComputationCostLimitInfinite}, s.b.RPCEVMTimeout(), gasCap)
+	result, _, err := DoCall(ctx, s.b, args, blockNrOrHash, &vm.Config{ComputationCostLimit: params.OpcodeComputationCostLimitInfinite}, s.b.RPCEVMTimeout(), gasCap)
 	if err != nil {
 		return nil, err
 	}
@@ -398,7 +477,7 @@ func (s *PublicBlockChainAPI) EstimateComputationCost(ctx context.Context, args 
 	if rpcGasCap := s.b.RPCGasCap(); rpcGasCap != nil {
 		gasCap = rpcGasCap
 	}
-	_, computationCost, err := DoCall(ctx, s.b, args, blockNrOrHash, vm.Config{ComputationCostLimit: params.OpcodeComputationCostLimitInfinite}, s.b.RPCEVMTimeout(), gasCap)
+	_, computationCost, err := DoCall(ctx, s.b, args, blockNrOrHash, &vm.Config{ComputationCostLimit: params.OpcodeComputationCostLimitInfinite}, s.b.RPCEVMTimeout(), gasCap)
 	return (hexutil.Uint64)(computationCost), err
 }
 
@@ -428,7 +507,7 @@ func (s *PublicBlockChainAPI) DoEstimateGas(ctx context.Context, b Backend, args
 	// Create a helper to check if a gas allowance results in an executable transaction
 	executable := func(gas uint64) (bool, *blockchain.ExecutionResult, error) {
 		args.Gas = hexutil.Uint64(gas)
-		result, _, err := DoCall(ctx, b, args, rpc.NewBlockNumberOrHashWithNumber(rpc.LatestBlockNumber), vm.Config{ComputationCostLimit: params.OpcodeComputationCostLimitInfinite}, s.b.RPCEVMTimeout(), gasCap)
+		result, _, err := DoCall(ctx, b, args, rpc.NewBlockNumberOrHashWithNumber(rpc.LatestBlockNumber), &vm.Config{ComputationCostLimit: params.OpcodeComputationCostLimitInfinite}, s.b.RPCEVMTimeout(), gasCap)
 		if err != nil {
 			if errors.Is(err, blockchain.ErrIntrinsicGas) {
 				return true, nil, nil // Special case, raise gas limit
@@ -439,6 +518,44 @@ func (s *PublicBlockChainAPI) DoEstimateGas(ctx context.Context, b Backend, args
 	}
 
 	return blockchain.DoEstimateGas(ctx, uint64(args.Gas), gasCap.Uint64(), args.Value.ToInt(), feeCap, balance, executable)
+}
+
+type EstimateGasTraceResult struct {
+	// Gas is an estimate of the amount of gas needed to execute the given transaction against the latest block.
+	Gas hexutil.Uint64 `json:"gas"`
+	// Trace contains trace result. Empty (undefined) Trace and empty error means estimation was successful.
+	Trace interface{} `json:"trace,omitempty"`
+	// Error is a raw error returned from the vm.
+	Error *string `json:"error,omitempty"`
+}
+
+// EstimateGasWithTrace returns an estimated gas and trace if it is going to be reverted.
+// NOTE: This method is an unofficial, blockswords fork only method to help debugging.
+func (s *PublicBlockChainAPI) EstimateGasWithTrace(ctx context.Context, args CallArgs) (*EstimateGasTraceResult, error) {
+	gasCap := uint64(0)
+	if rpcGasCap := s.b.RPCGasCap(); rpcGasCap != nil {
+		gasCap = rpcGasCap.Uint64()
+	}
+	gasCapBigInt := big.NewInt(int64(gasCap))
+
+	estimatedGas, err := s.DoEstimateGas(ctx, s.b, args, gasCapBigInt)
+	if err != nil {
+		errStr := err.Error()
+
+		tracer := vm.NewInternalTxTracer()
+
+		args.Gas = hexutil.Uint64(params.UpperGasLimit)
+		DoCall(ctx, s.b, args, rpc.NewBlockNumberOrHashWithNumber(rpc.LatestBlockNumber), &vm.Config{Debug: true, Tracer: tracer}, 0, gasCapBigInt)
+
+		tracerResult, tracerErr := tracer.GetResult()
+		return &EstimateGasTraceResult{
+			Gas:   estimatedGas,
+			Trace: tracerResult,
+			Error: &errStr,
+		}, tracerErr
+	}
+
+	return &EstimateGasTraceResult{Gas: estimatedGas}, nil
 }
 
 // ExecutionResult groups all structured logs emitted by the EVM

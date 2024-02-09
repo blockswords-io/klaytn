@@ -47,6 +47,23 @@ type Dump struct {
 	Accounts map[string]DumpAccount `json:"accounts"`
 }
 
+func (self *StateDB) DumpContractStorage(address common.Address) map[string]string {
+	res := map[string]string{}
+
+	obj := self.getStateObject(address)
+	trie := obj.getStorageTrie(self.db)
+	it := statedb.NewIterator(trie.NodeIterator(nil))
+	for it.Next() {
+		key := common.Bytes2Hex(trie.GetKey(it.Key))
+		if key == "" {
+			key = "hash:" + common.Bytes2Hex(it.Key)
+		}
+		res[key] = common.Bytes2Hex(it.Value)
+	}
+
+	return res
+}
+
 func (self *StateDB) RawDump() Dump {
 	dump := Dump{
 		Root:     fmt.Sprintf("%x", self.trie.Hash()),

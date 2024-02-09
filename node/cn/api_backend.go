@@ -234,13 +234,13 @@ func (b *CNAPIBackend) GetTd(blockHash common.Hash) *big.Int {
 	return b.cn.blockchain.GetTdByHash(blockHash)
 }
 
-func (b *CNAPIBackend) GetEVM(ctx context.Context, msg blockchain.Message, state *state.StateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {
+func (b *CNAPIBackend) GetEVM(ctx context.Context, msg blockchain.Message, state *state.StateDB, header *types.Header, vmCfg *vm.Config) (*vm.EVM, func() error, error) {
 	vmError := func() error { return nil }
 
 	txContext := blockchain.NewEVMTxContext(msg, header)
 	blockContext := blockchain.NewEVMBlockContext(header, b.cn.BlockChain(), nil)
 
-	return vm.NewEVM(blockContext, txContext, state, b.cn.chainConfig, &vmCfg), vmError, nil
+	return vm.NewEVM(blockContext, txContext, state, b.cn.chainConfig, vmCfg), vmError, nil
 }
 
 func (b *CNAPIBackend) SubscribeRemovedLogsEvent(ch chan<- blockchain.RemovedLogsEvent) event.Subscription {
